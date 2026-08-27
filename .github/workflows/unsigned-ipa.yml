@@ -1,0 +1,50 @@
+name: Unsigned IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ipa:
+    name: Archive unsigned device IPA
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select newest Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1 || true)
+          if [ -z "$XCODE" ]; then
+            XCODE=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          fi
+          echo "Selected: $XCODE"
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+
+      - name: Archive unsigned
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project Screenway.xcodeproj \
+            -scheme Screenway \
+            -destination 'generic/platform=iOS' \
+            -configuration Release \
+            -archivePath "$RUNNER_TEMP/Screenway.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY= \
+            DEVELOPMENT_TEAM=
+
+          APP=$(find "$RUNNER_TEMP/Screenway.xcarchive" -name '*.app' | head -1)
+          echo "App: $APP"
+          rm -rf Payload
+          mkdir Payload
+          cp -R "$APP" Payload/
+          zip -qry Screenway-unsigned.ipa Payload
+          ls -lh Screenway-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Screenway-unsigned
+          path: Screenway-unsigned.ipa
+          if-no-files-found: error
