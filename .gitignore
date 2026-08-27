@@ -1,0 +1,23 @@
+# Xcode
+xcuserdata/
+DerivedData/
+build/
+*.xcresult
+
+# Artifacts & signing material (never committed)
+*.ipa
+*.p12
+*.mobileprovision
+*.cer
+*.certSigningRequest
+
+# Environment
+.env
+.env.*
+
+# macOS
+.DS_Store
+
+# SwiftPM local state
+.build/
+.swiftpm/
