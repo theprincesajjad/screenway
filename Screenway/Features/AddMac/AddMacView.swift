@@ -78,7 +78,7 @@ struct AddMacView: View {
                             Text("Testing…")
                         }
                     case .success:
-                        Label("Connection OK (mock)", systemImage: "checkmark.circle")
+                        Label("Connection OK", systemImage: "checkmark.circle")
                     case .failure(let message):
                         Label(message, systemImage: "xmark.circle")
                     }

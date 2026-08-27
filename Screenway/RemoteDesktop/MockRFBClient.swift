@@ -55,7 +55,34 @@ public actor MockRFBClient: RFBClientProtocol {
             try await Task.sleep(for: .seconds(stepDelay))
         }
         eventContinuation.yield(.desktopNameChanged("Mock Mac"))
-        eventContinuation.yield(.framebufferUpdated(FramebufferUpdate(x: 0, y: 0, width: 1920, height: 1080)))
+        eventContinuation.yield(
+            .framebufferGeometryChanged(width: Self.mockScreenWidth, height: Self.mockScreenHeight)
+        )
+        eventContinuation.yield(.framebufferUpdated(Self.mockFrame()))
+    }
+
+    static let mockScreenWidth = 320
+    static let mockScreenHeight = 200
+
+    /// A small BGRA gradient so the Metal renderer has real bytes to show in
+    /// previews and UI tests without any network.
+    static func mockFrame() -> FramebufferUpdate {
+        let width = mockScreenWidth
+        let height = mockScreenHeight
+        var data = Data(count: width * height * 4)
+        for y in 0..<height {
+            for x in 0..<width {
+                let offset = (y * width + x) * 4
+                data[offset] = UInt8((x * 255) / max(width - 1, 1))      // blue
+                data[offset + 1] = UInt8((y * 255) / max(height - 1, 1)) // green
+                data[offset + 2] = 96                                     // red
+                data[offset + 3] = 255                                    // alpha
+            }
+        }
+        return FramebufferUpdate(
+            x: 0, y: 0, width: width, height: height,
+            pixels: FramebufferPixels(format: .bgra8888, bytesPerRow: width * 4, data: data)
+        )
     }
 
     public func disconnect() async {

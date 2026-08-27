@@ -20,12 +20,17 @@
 ## On the iPhone/iPad
 
 1. Install the Tailscale app and sign in to the same tailnet.
-2. Build and run Screenway (see README — Gate 1 is not on the App Store).
+2. Build and run Screenway (see README — Screenway is not on the App Store;
+   running on a physical device requires selecting your own personal team in
+   Xcode's Signing settings locally — the repo intentionally ships unsigned).
 3. Tap **Add a Mac**, enter a name and the Tailscale address, choose how you
    sign in, and save.
 
-## Gate 1 reality check
+## Gate 2 reality check
 
-In the current Gate 1 build, "Test Connection" and "Connect" exercise a mock
-client — no real Screen Sharing or SFTP connection is made yet. The full
-connect path arrives in Gate 2.
+"Test Connection" and "Connect" now open a real Screen Sharing (RFB)
+session over your tailnet: Apple Remote Desktop sign-in (username/password)
+preferred, VNC password fallback, first framebuffer rendered through Metal,
+tap-to-click and a debug key control. File access (SFTP) is still mocked and
+arrives in a later gate. The simulator builds and tests everything, but the
+gate is only proven on a physical device against a real Mac.

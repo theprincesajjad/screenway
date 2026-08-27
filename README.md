@@ -22,22 +22,33 @@ connecting over your existing [Tailscale](https://tailscale.com) network.
   `app.screenway` are working identifiers and need trademark/identifier
   clearance before any App Store submission.
 
-## Status: Gate 1 (mock transport)
+## Status: Gate 2 (live VNC slice)
 
-This repository currently implements **Gate 1** of the roadmap:
+This repository currently implements **Gate 2** of the roadmap — a
+physical-device-ready vertical slice of the live Screen Sharing path:
 
-- The full app skeleton compiles: domain models, error codes, host parsing,
-  Tailscale destination policy, session state machine, adapter protocols, and
-  keychain/profile stores — all unit-tested.
-- The UI (welcome screen, Macs list, Add Mac form, Session screen) runs
-  entirely on **mock** RFB/SFTP clients. **No real VNC or SFTP connection is
-  made in Gate 1.** "Test Connection" and "Connect" drive scripted mocks.
-- [RoyalVNCKit](https://github.com/royalapplications/royalvnc) and
-  [Citadel](https://github.com/orlandos-nl/Citadel) are pinned in
-  `Package.resolved` and their adapters compile, but the default app
-  environment never instantiates them (enforced by a unit test).
+- The default app environment now wires the **live**
+  [RoyalVNCKit](https://github.com/royalapplications/royalvnc)-backed
+  `RoyalVNCAdapter` (enforced by a unit test). Connecting to a saved Mac
+  opens a real RFB session over your tailnet.
+- Authentication uses Apple Remote Desktop (username/password) when the Mac
+  offers it, with classic VNC password as the fallback. Unauthenticated
+  sessions (servers offering security type None) are rejected.
+- The first framebuffer renders through Metal (`MTKView`), with dirty-rect
+  texture uploads. A tap sends one primary click at the mapped coordinate and
+  a debug control sends one key — the full input/keyboard experience is a
+  later gate.
+- The Tailscale destination policy is enforced before any socket opens, and
+  name-based destinations are pinned to a validated resolved address.
+- SFTP file access is **still mocked**: [Citadel](https://github.com/orlandos-nl/Citadel)
+  stays pinned but unused in the live path until the file gate.
 
-Real connections (Gate 2) come next. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+**The ship gate for Gate 2 is a physical device, not the simulator or CI.**
+CI proves the build, the unit tests, and the adapter contract against a
+loopback RFB fixture; verifying against a real Mac over Tailscale requires
+running the app on hardware (which needs a personal signing team locally —
+the repo itself stays unsigned). See
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Building
 

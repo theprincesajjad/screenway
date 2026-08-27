@@ -1,13 +1,13 @@
 import SwiftUI
 
-/// Minimal settings surface (Gate 1). Per-Mac options live on the profile;
+/// Minimal settings surface. Per-Mac options live on the profile;
 /// app-wide preferences arrive with later gates.
 struct SettingsView: View {
     var body: some View {
         List {
             Section("About") {
                 LabeledContent("App", value: "Screenway")
-                LabeledContent("Status", value: "Gate 1 (mock connections)")
+                LabeledContent("Status", value: "Gate 2 (live Screen Sharing)")
             }
             Section {
                 Text("Screenway connects directly through Tailscale. There is no Screenway account or cloud relay.")

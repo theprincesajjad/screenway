@@ -2,7 +2,7 @@ import SwiftUI
 
 @main
 struct ScreenwayApp: App {
-    @State private var appEnvironment = AppEnvironment()
+    @State private var appEnvironment = AppEnvironment.forCurrentProcess()
     @State private var lifecycleCoordinator = SceneLifecycleCoordinator()
     @Environment(\.scenePhase) private var scenePhase
 
