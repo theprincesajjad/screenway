@@ -135,7 +135,7 @@ final class FramebufferRenderer: NSObject {
     """
 }
 
-extension FramebufferRenderer: @preconcurrency MTKViewDelegate {
+extension FramebufferRenderer: MTKViewDelegate {
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
         view.setNeedsDisplay()
     }

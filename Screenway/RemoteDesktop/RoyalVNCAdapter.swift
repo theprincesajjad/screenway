@@ -629,7 +629,11 @@ final class RoyalVNCConnectionBridge: NSObject, VNCConnectionDelegate, @unchecke
                     return transport
                 }
                 return RFBFailure.timedOut.error(detail: transportError.map { String(describing: $0) })
+            @unknown default:
+                return RFBFailure.sessionEnded.error(detail: String(describing: underlying))
             }
+        @unknown default:
+            return RFBFailure.sessionEnded.error(detail: String(describing: vncError))
         }
     }
 
