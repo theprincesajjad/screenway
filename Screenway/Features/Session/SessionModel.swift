@@ -48,8 +48,9 @@ final class SessionModel {
 
     func start() async {
         eventTask = Task { [client] in
+            // The Task inherits this model's MainActor isolation.
             for await event in client.events {
-                await self.handle(event)
+                self.handle(event)
             }
         }
         do {

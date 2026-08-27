@@ -642,17 +642,19 @@ final class RoyalVNCConnectionBridge: NSObject, VNCConnectionDelegate, @unchecke
             return screenwayError
         }
 #if canImport(Network)
+        // if-case matching (not an exhaustive switch) so newer SDKs adding
+        // NWError cases neither warn nor break the build.
         if let nwError = error as? NWError {
-            switch nwError {
-            case .dns:
+            if case .dns = nwError {
                 return RFBFailure.nameResolution.error(detail: String(describing: nwError))
-            case .posix(let code):
-                return RFBFailure.fromPOSIXCode(code.rawValue)?.error(detail: String(describing: nwError))
-            case .tls:
-                return RFBFailure.protocolError.error(detail: String(describing: nwError))
-            @unknown default:
-                return nil
             }
+            if case .posix(let code) = nwError {
+                return RFBFailure.fromPOSIXCode(code.rawValue)?.error(detail: String(describing: nwError))
+            }
+            if case .tls = nwError {
+                return RFBFailure.protocolError.error(detail: String(describing: nwError))
+            }
+            return nil
         }
 #endif
         let posixCode = Int32((error as NSError).domain == NSPOSIXErrorDomain ? (error as NSError).code : -1)

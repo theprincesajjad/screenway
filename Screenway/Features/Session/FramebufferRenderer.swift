@@ -79,7 +79,7 @@ final class FramebufferRenderer: NSObject {
         let region = MTLRegionMake2D(update.x, update.y, update.width, update.height)
         pixels.data.withUnsafeBytes { bytes in
             guard let baseAddress = bytes.baseAddress else { return }
-            texture.replaceRegion(region, mipmapLevel: 0, withBytes: baseAddress, bytesPerRow: pixels.bytesPerRow)
+            texture.replace(region: region, mipmapLevel: 0, withBytes: baseAddress, bytesPerRow: pixels.bytesPerRow)
         }
         requestRedraw()
     }

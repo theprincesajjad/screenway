@@ -148,7 +148,8 @@ public enum RFBDestinationGate {
         let formatted = address.bytes.withUnsafeBytes { rawBytes -> String? in
             guard let base = rawBytes.baseAddress else { return nil }
             guard inet_ntop(AF_INET6, base, &buffer, socklen_t(buffer.count)) != nil else { return nil }
-            return String(cString: buffer)
+            let octets = buffer.prefix(while: { $0 != 0 }).map { UInt8(bitPattern: $0) }
+            return String(decoding: octets, as: UTF8.self)
         }
         // inet_ntop cannot fail for 16 valid bytes; fall back defensively.
         return formatted ?? address.bytes.map { String(format: "%02x", $0) }.joined()
