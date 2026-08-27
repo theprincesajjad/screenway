@@ -47,8 +47,9 @@ final class AddMacModel {
         parsed?.port ?? UInt16(vncPortText) ?? 5900
     }
 
-    /// Drives the mock client through a full connect cycle. Never opens a
-    /// real socket in Gate 1.
+    /// Drives the environment's RFB client through a full connect cycle.
+    /// With the live adapter this is a real reachability + sign-in check
+    /// (destination policy enforced before any socket opens).
     func testConnection() async {
         guard let parsed = parsedHost() else {
             testResult = .failure(HostParseError.malformed.userMessage)

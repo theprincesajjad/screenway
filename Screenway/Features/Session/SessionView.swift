@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Mock session screen: connection-state labels, then a plain placeholder.
-/// No Metal, no gesture handling — that is Gate 2.
+/// Live session screen: connection-state labels, then the Metal framebuffer.
+/// A tap sends one primary click at the mapped coordinate; a bottom-bar
+/// button proves the key path ("a"). Deliberately functional, not polished.
 struct SessionView: View {
     let profile: MacProfile
     @Environment(AppEnvironment.self) private var appEnvironment
@@ -28,6 +29,13 @@ struct SessionView: View {
                     }
                 }
             }
+            if let model, model.isScreenReady {
+                ToolbarItem(placement: .bottomBar) {
+                    Button("Send key (a)") {
+                        Task { await model.sendDebugKeyA() }
+                    }
+                }
+            }
         }
         .task {
             guard model == nil else { return }
@@ -43,36 +51,48 @@ struct SessionView: View {
 
     @ViewBuilder
     private func content(model: SessionModel) -> some View {
-        if let failure = model.failure {
-            ContentUnavailableView {
-                Label(failure.code.title, systemImage: "exclamationmark.triangle")
-            } description: {
-                Text(failure.code.reason)
-            } actions: {
-                Button(failure.code.action) { dismiss() }
-            }
-        } else if model.isScreenReady {
-            ZStack {
-                Rectangle()
-                    .fill(Color(.secondarySystemBackground))
-                VStack(spacing: 8) {
-                    Image(systemName: "display")
-                        .font(.largeTitle)
-                    Text("Remote screen (mock)")
-                    if let desktopName = model.desktopName {
-                        Text(desktopName)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+        @Bindable var model = model
+        Group {
+            if let failure = model.failure {
+                ContentUnavailableView {
+                    Label(failure.code.title, systemImage: "exclamationmark.triangle")
+                } description: {
+                    Text(failure.code.reason)
+                } actions: {
+                    Button(failure.code.action) { dismiss() }
+                }
+            } else if model.isScreenReady {
+                GeometryReader { proxy in
+                    RemoteFramebufferView(renderer: model.renderer)
+                        .contentShape(Rectangle())
+                        .onTapGesture(coordinateSpace: .local) { location in
+                            Task {
+                                await model.sendPrimaryClick(atViewPoint: location, viewSize: proxy.size)
+                            }
+                        }
+                }
+                .background(Color.black)
+                .ignoresSafeArea(edges: .bottom)
+            } else {
+                VStack(spacing: 12) {
+                    ProgressView()
+                    Text(model.statusLabel)
+                        .foregroundStyle(.secondary)
                 }
             }
-            .ignoresSafeArea(edges: .bottom)
-        } else {
-            VStack(spacing: 12) {
-                ProgressView()
-                Text(model.statusLabel)
-                    .foregroundStyle(.secondary)
+        }
+        .alert("Sign in to \(profile.displayName)", isPresented: $model.isPromptingForCredentials) {
+            TextField("Mac user name", text: $model.promptUsername)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            SecureField("Password", text: $model.promptPassword)
+            Button("Connect") { model.submitPromptedCredentials() }
+            Button("Cancel", role: .cancel) {
+                model.cancelCredentialPrompt()
+                dismiss()
             }
+        } message: {
+            Text("Enter the account used for Screen Sharing on this Mac.")
         }
     }
 }

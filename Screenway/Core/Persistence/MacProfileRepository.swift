@@ -53,6 +53,13 @@ public actor MacProfileRepository {
         await profileStore.upsert(toSave)
     }
 
+    /// The remembered Screen Sharing password for a profile, if any.
+    /// Secrets are only ever handed out transiently for authentication.
+    public func storedVNCPassword(for profile: MacProfile) async -> String? {
+        guard let credentialID = profile.vncCredentialID else { return nil }
+        return try? await credentialStore.secret(for: credentialID)
+    }
+
     /// Deletes the profile and every secret it references.
     public func delete(id: UUID) async throws {
         guard let profile = await profileStore.profile(id: id) else { return }

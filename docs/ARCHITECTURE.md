@@ -1,7 +1,7 @@
 # Screenway Architecture
 
-High-level notes for Gate 1. This is a living document; sections marked
-"Gate 2" describe intent, not shipped behavior.
+High-level notes as of Gate 2 (the live VNC slice). This is a living
+document.
 
 ## Shape of the app
 
@@ -30,10 +30,12 @@ through two Screenway-owned protocols:
 - `SFTPClientProtocol` (actor): connect (with mandatory host-key verification
   through `SSHHostKeyStore`), directory listing, file read/write.
 
-`AppEnvironment` is the composition root. In Gate 1 it wires
-`MockRFBClient` / `MockSFTPClient` only; a unit test
-(`AppEnvironmentTests`) enforces that the default environment uses mocks and
-never the live adapters.
+`AppEnvironment` is the composition root. As of Gate 2 the default
+environment wires the **live** `RoyalVNCAdapter` for remote desktop and the
+mock SFTP client (Citadel stays pinned but unused until the file gate). A
+unit test (`AppEnvironmentTests`) enforces both. Tests construct explicit
+mock environments; UI tests and previews launch the app with the
+`-screenway-mock-adapters` argument (`AppEnvironment.forCurrentProcess`).
 
 ### Dependency pinning notes
 
@@ -99,18 +101,87 @@ NET-001..003, VNC-001..004, SSH-001..003, FILE-001..003, CLIP-001..002, each
 with title / reason / action copy. The table is contract-tested; treat
 changes as breaking.
 
-## Gate 1 UI
+## Gate 2: the live VNC slice
 
-Deliberately unpolished system UI: welcome screen → Macs list (empty state +
-rows with Connect) → Add Mac form (mock Test Connection) → Session screen that
-walks the mock connection phases ("Finding Mac…", "Reaching Mac…",
-"Signing in…", "Preparing screen…", "Waiting for screen…") and then shows a
-plain "Remote screen (mock)" placeholder. No Metal, no gestures, no custom
-design system.
+Gate 2 wires the real Screen Sharing path end to end. **The ship gate is a
+physical device connecting to a real Mac over Tailscale — CI and the
+simulator prove the build and the adapter contract, not the gate itself.**
 
-## Gate 2 (not in this repo yet)
+### RoyalVNCAdapter bridging
 
-Real RFB via `RoyalVNCAdapter`, real SFTP via `CitadelSFTPAdapter`
-(host-key verification through `SSHHostKeyStore`; `acceptAnything`-style
-validators are forbidden in release paths), real Keychain-backed
-`CredentialStore`, Metal framebuffer rendering, clipboard and file features.
+RoyalVNCKit 1.1.0's `VNCConnection` runs the entire RFB handshake itself
+(TCP via `NWConnection`, protocol version, security negotiation, ServerInit)
+and asks for credentials through a delegate callback mid-handshake. The
+adapter maps that onto Screenway's two-step `RFBClientProtocol` contract:
+
+- `connect(to:)` first enforces `TailscaleDestinationPolicy` (names are
+  resolved with `getaddrinfo` and pinned to a validated Tailscale address —
+  no socket opens to a rejected destination), then starts the kit connection
+  and suspends until the server asks for a credential. At that point the
+  session is in `.authenticating` and `connect` returns.
+- `authenticate(_:)` converts `RFBCredentials` into the mechanism the server
+  picked (`VNCUsernamePasswordCredential` for Apple Remote Desktop /
+  Diffie-Hellman, `VNCPasswordCredential` for classic VNC auth) and resumes
+  the kit's pending credential callback, then suspends until the handshake
+  finishes.
+- **Unauthenticated sessions are rejected**: RoyalVNCKit prefers security
+  type None when a server offers it, and None never triggers the credential
+  callback. If the kit reports "connected" while `connect(to:)` is still
+  waiting for a credential request, the adapter disconnects and fails with
+  VNC-002.
+- `disconnect()` releases any held pointer buttons and keys (with a short
+  flush delay for the kit's async send queue), then closes the connection.
+- Kit errors map to the stable codes: DNS → NET-001, unreachable → NET-002,
+  timeout → NET-003, TCP refused → VNC-001, authentication → VNC-002,
+  protocol/pixel-format (and framebuffer-cap refusals) → VNC-003, closed
+  sessions → VNC-004 (`RFBFailure` + the bridge's `mapKitError`).
+- Clipboard: RoyalVNCKit exposes no direct client-cut-text API (its
+  clipboard support monitors the system pasteboard), so `sendClipboardText`
+  is not offered in the Gate 2 UI and the feature lands in a later gate.
+
+### Framebuffer path and rendering
+
+The kit maintains one BGRA8 surface per session (IOSurface-backed by
+default). The adapter installs a custom `VNCFramebufferAllocator` that
+**refuses any surface allocation above 512 MiB before allocating**, and the
+bridge validates dimensions (16384 px/side cap) and dirty-rect bounds before
+copying. Each `didUpdateFramebuffer` callback copies just the dirty rect out
+of the kit surface (under the allocator's read lock, synchronously, so rects
+apply in wire order) into a Screenway-owned `FramebufferUpdate` with
+`FramebufferPixels` (BGRA8888 + stride). Feature code never sees a
+RoyalVNCKit type.
+
+`FramebufferRenderer` (Metal, `MTKView` via `UIViewRepresentable`) keeps one
+`bgra8Unorm` texture, uploads dirty rects with `replaceRegion`, and draws an
+aspect-fitted quad with a runtime-compiled shader. The view is paused with
+`enableSetNeedsDisplay`, so nothing draws while the remote screen is idle.
+Frames are never persisted to disk.
+
+### Session UI (functional, not polished)
+
+System navigation retained. Once the first framebuffer arrives the Metal
+view replaces the progress placeholder; a tap sends one primary click at the
+Fit-mapped coordinate (`FramebufferFitMapper`), and a bottom-bar
+"Send key (a)" debug control proves the key path. A minimal alert prompts
+for a password when none is stored. The full trackpad/keyboard experience is
+a later gate.
+
+### Adapter-contract tests
+
+`MiniRFBServer` (test fixture) is a ~250-line RFB 3.8 server on 127.0.0.1
+that offers either VNC auth or security type None, answers the first
+framebuffer request with one raw rect, and records pointer/key messages.
+Contract tests drive the production adapter against it: refused port →
+VNC-001, None → rejected with VNC-002, VNC-auth happy path → pixels +
+pointer + key on the wire + clean disconnect (held inputs released). The
+loopback destination is only reachable through an internal, test-only
+constructor seam; the production policy is untouched. No CI test needs a
+live Mac.
+
+### Still pending after Gate 2
+
+Real SFTP via `CitadelSFTPAdapter` (host-key verification through
+`SSHHostKeyStore`; `acceptAnything`-style validators are forbidden in
+release paths), a real Keychain-backed `CredentialStore` (Gate 2 still uses
+the in-memory store), clipboard, file transfer, and the full input/keyboard
+experience.
