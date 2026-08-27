@@ -62,5 +62,16 @@ jobs:
           xcodebuild test-without-building \
             -project Screenway.xcodeproj \
             -scheme Screenway \
+            -only-testing:ScreenwayTests \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+
+      - name: Launch smoke (XCUITest, app must reach first screen)
+        run: |
+          set -o pipefail
+          xcodebuild test-without-building \
+            -project Screenway.xcodeproj \
+            -scheme Screenway \
+            -only-testing:ScreenwayUITests \
             -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
