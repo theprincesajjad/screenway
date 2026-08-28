@@ -40,6 +40,17 @@
                ReferencedContainer = "container:Screenway.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "5C0000000000000000000132"
+               BuildableName = "ScreenwayUITests.xctest"
+               BlueprintName = "ScreenwayUITests"
+               ReferencedContainer = "container:Screenway.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction
